@@ -118,6 +118,24 @@ func pcregroups(ptr *C.pcre) (count C.int) {
 	return
 }
 
+func pcrenamedgroups(ptr *C.pcre) (count C.int) {
+	C.pcre_fullinfo(ptr, nil,
+		C.PCRE_INFO_NAMECOUNT, unsafe.Pointer(&count))
+	return
+}
+
+func pcrenamedgroupsentrysize(ptr *C.pcre) (size C.int) {
+	C.pcre_fullinfo(ptr, nil,
+		C.PCRE_INFO_NAMEENTRYSIZE, unsafe.Pointer(&size))
+	return
+}
+
+func pcrenamedgroupslist(ptr *C.pcre) (cp *C.char) {
+	C.pcre_fullinfo(ptr, nil,
+		C.PCRE_INFO_NAMETABLE, unsafe.Pointer(&cp))
+	return
+}
+
 // Move pattern to the Go heap so that we do not have to use a
 // finalizer.  PCRE patterns are fully relocatable. (We do not use
 // custom character tables.)
@@ -169,6 +187,26 @@ func (re Regexp) Groups() int {
 		panic("Regexp.Groups: uninitialized")
 	}
 	return int(pcregroups((*C.pcre)(unsafe.Pointer(&re.ptr[0]))))
+}
+
+func (re Regexp) NamedGroups() map[string]int {
+	length := int(pcrenamedgroups((*C.pcre)(unsafe.Pointer(&re.ptr[0]))))
+	entrySize := int(pcrenamedgroupsentrysize((*C.pcre)(unsafe.Pointer(&re.ptr[0]))))
+	pc := pcrenamedgroupslist((*C.pcre)(unsafe.Pointer(&re.ptr[0])))
+
+	groups := make(map[string]int)
+	for i := 0; i < length; i += 1 {
+		g := (*[1 << 30]byte)(unsafe.Pointer(pc))[i*entrySize:(i+1)*entrySize]
+		s := len(g)
+		for ii, v := range g[2:s] {
+			if int(v) == 0 {
+				s = ii+2
+				break
+			}
+		}
+		groups[string(g[2:s])] = int(g[1])
+	}
+	return groups
 }
 
 // Matcher objects provide a place for storing match results.
@@ -335,6 +373,15 @@ func (m *Matcher) GroupString(group int) string {
 		return m.subjects[start:end]
 	}
 	return ""
+}
+
+func (m *Matcher) NamedStringMap() map[string]string {
+	nm := m.re.NamedGroups()
+	sm := make(map[string]string)	
+	for k, v := range nm {
+		sm[k] = m.GroupString(v)
+	}
+	return sm
 }
 
 func (m *Matcher) name2index(name string) (group int) {
