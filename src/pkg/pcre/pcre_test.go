@@ -66,21 +66,27 @@ func equal(l, r []string) bool {
 func checkmatch1(t *testing.T, dostring bool, m *Matcher,
 	pattern, subject string, args ...interface{}) {
 	re := MustCompile(pattern, 0)
-	var prefix string
+	var (
+		prefix string
+		err    error
+	)
 	if dostring {
 		if m == nil {
-			m = re.MatcherString(subject, 0)
+			m, err = re.MatcherString(subject, 0)
 		} else {
-			m.ResetString(re, subject, 0)
+			err = m.ResetString(re, subject, 0)
 		}
 		prefix = "string"
 	} else {
 		if m == nil {
-			m = re.Matcher([]byte(subject), 0)
+			m, err = re.Matcher([]byte(subject), 0)
 		} else {
-			m.Reset(re, []byte(subject), 0)
+			err = m.Reset(re, []byte(subject), 0)
 		}
 		prefix = "[]byte"
+	}
+	if err != nil {
+		t.Error(err)
 	}
 	if len(args) == 0 {
 		if m.Matches() {
@@ -139,11 +145,17 @@ func TestMatcher(t *testing.T) {
 }
 
 func TestCaseless(t *testing.T) {
-	m := MustCompile("abc", CASELESS).MatcherString("Abc", 0)
+	m, err := MustCompile("abc", CASELESS).MatcherString("Abc", 0)
+	if err != nil {
+		t.Error(err)
+	}
 	if !m.Matches() {
 		t.Error("CASELESS")
 	}
-	m = MustCompile("abc", 0).MatcherString("Abc", 0)
+	m, err = MustCompile("abc", 0).MatcherString("Abc", 0)
+	if err == nil {
+		t.Error("!CASELESS")
+	}
 	if m.Matches() {
 		t.Error("!CASELESS")
 	}
@@ -175,7 +187,10 @@ func TestNamedGroup(t *testing.T) {
 			checkIndex(t, k, i, 4)
 		}
 	}
-	m := re.MatcherString(`{@timestamp=2018-07-10T11:38:42.963+08:00, message={hostname: adca-mesos-32.vm.elenet.me, ip: 10.101.64.117, topic: arch.appos_agent} {"error":"request: Post http://127.0.0.1:1988/metrics?key=docker: net/http: request canceled (Client.Timeout exceeded while awaiting headers)","indice":"appos.agent","level":"error","log_source":"appos-agent","msg":"Send stats","time":"2018-06-18T03:15:41+08:00"}}`, 0)
+	m, err := re.MatcherString(`{@timestamp=2018-07-10T11:38:42.963+08:00, message={hostname: adca-mesos-32.vm.elenet.me, ip: 10.101.64.117, topic: arch.appos_agent} {"error":"request: Post http://127.0.0.1:1988/metrics?key=docker: net/http: request canceled (Client.Timeout exceeded while awaiting headers)","indice":"appos.agent","level":"error","log_source":"appos-agent","msg":"Send stats","time":"2018-06-18T03:15:41+08:00"}}`, 0)
+	if err != nil {
+		t.Error(err)
+	}
 	for k, v := range m.NamedStringMap() {
 		switch k {
 		case "hostname":
@@ -191,8 +206,11 @@ func TestNamedGroup(t *testing.T) {
 }
 
 func TestNamed(t *testing.T) {
-	m := MustCompile("(?<L>a)(?<M>X)*bc(?<DIGITS>\\d*)", 0).
+	m, err := MustCompile("(?<L>a)(?<M>X)*bc(?<DIGITS>\\d*)", 0).
 		MatcherString("abc12", 0)
+	if err != nil {
+		t.Error(err)
+	}
 	if !m.Matches() {
 		t.Error("Matches")
 	}

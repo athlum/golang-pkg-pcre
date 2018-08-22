@@ -229,36 +229,38 @@ type Matcher struct {
 
 // Returns a new matcher object, with the byte array slice as a
 // subject.
-func (re Regexp) Matcher(subject []byte, flags int) (m *Matcher) {
+func (re Regexp) Matcher(subject []byte, flags int) (m *Matcher, err error) {
 	m = new(Matcher)
-	m.Reset(re, subject, flags)
+	err = m.Reset(re, subject, flags)
 	return
 }
 
 // Returns a new matcher object, with the specified subject string.
-func (re Regexp) MatcherString(subject string, flags int) (m *Matcher) {
+func (re Regexp) MatcherString(subject string, flags int) (m *Matcher, err error) {
 	m = new(Matcher)
-	m.ResetString(re, subject, flags)
+	err = m.ResetString(re, subject, flags)
 	return
 }
 
 // Switches the matcher object to the specified pattern and subject.
-func (m *Matcher) Reset(re Regexp, subject []byte, flags int) {
+func (m *Matcher) Reset(re Regexp, subject []byte, flags int) error {
 	if re.ptr == nil {
 		panic("Regexp.Matcher: uninitialized")
 	}
 	m.init(re)
-	m.Match(subject, flags)
+	_, err := m.Match(subject, flags)
+	return err
 }
 
 // Switches the matcher object to the specified pattern and subject
 // string.
-func (m *Matcher) ResetString(re Regexp, subject string, flags int) {
+func (m *Matcher) ResetString(re Regexp, subject string, flags int) error {
 	if re.ptr == nil {
 		panic("Regexp.Matcher: uninitialized")
 	}
 	m.init(re)
-	m.MatchString(subject, flags)
+	_, err := m.MatchString(subject, flags)
+	return err
 }
 
 func (m *Matcher) init(re Regexp) {
@@ -430,7 +432,10 @@ func (m *Matcher) NamedPresent(group string) bool {
 // Return the start and end of the first match, or nil if no match.
 // loc[0] is the start and loc[1] is the end.
 func (re *Regexp) FindIndex(bytes []byte, flags int) ([]int, error) {
-	m := re.Matcher(bytes, flags)
+	m, err := re.Matcher(bytes, flags)
+	if err != nil {
+		return nil, err
+	}
 	matched, err := m.Match(bytes, flags)
 	if matched {
 		return []int{int(m.ovector[0]), int(m.ovector[1])}, err
@@ -440,12 +445,12 @@ func (re *Regexp) FindIndex(bytes []byte, flags int) ([]int, error) {
 
 // Return a copy of a byte slice with pattern matches replaced by repl.
 func (re Regexp) ReplaceAll(bytes, repl []byte, flags int) ([]byte, error) {
-	m := re.Matcher(bytes, 0)
+	m, err := re.Matcher(bytes, 0)
+	if err != nil {
+		return nil, err
+	}
 	r := []byte{}
-	var (
-		matched bool = true
-		err     error
-	)
+	var matched bool = true
 	for matched {
 		if matched, err = m.Match(bytes, flags); matched {
 			r = append(append(r, bytes[:m.ovector[0]]...), repl...)
