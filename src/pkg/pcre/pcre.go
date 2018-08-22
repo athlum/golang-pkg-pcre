@@ -55,6 +55,7 @@ package pcre
 import "C"
 
 import (
+	"github.com/pkg/errors"
 	"strconv"
 	"unsafe"
 )
@@ -97,6 +98,11 @@ const (
 	NO_START_OPTIMIZE = C.PCRE_NO_START_OPTIMIZE
 	PARTIAL_HARD      = C.PCRE_PARTIAL_HARD
 	PARTIAL_SOFT      = C.PCRE_PARTIAL_SOFT
+)
+
+var (
+	PCRE_ERROR_NOMATCH    = errors.New("PCRE_ERROR_NOMATCH")
+	PCRE_ERROR_MATCHLIMIT = errors.New("PCRE_ERROR_MATCHLIMIT")
 )
 
 // A reference to a compiled regular expression.
@@ -274,7 +280,7 @@ var nullbyte = []byte{0}
 
 // Tries to match the speficied byte array slice to the current
 // pattern.  Returns true if the match succeeds.
-func (m *Matcher) Match(subject []byte, flags int) bool {
+func (m *Matcher) Match(subject []byte, flags int) (bool, error) {
 	if m.re.ptr == nil {
 		panic("Matcher.Match: uninitialized")
 	}
@@ -290,7 +296,7 @@ func (m *Matcher) Match(subject []byte, flags int) bool {
 
 // Tries to match the speficied subject string to the current pattern.
 // Returns true if the match succeeds.
-func (m *Matcher) MatchString(subject string, flags int) bool {
+func (m *Matcher) MatchString(subject string, flags int) (bool, error) {
 	if m.re.ptr == nil {
 		panic("Matcher.Match: uninitialized")
 	}
@@ -305,20 +311,20 @@ func (m *Matcher) MatchString(subject string, flags int) bool {
 	return m.match(subjectptr, length, flags)
 }
 
-func (m *Matcher) match(subjectptr *C.char, length, flags int) bool {
+func (m *Matcher) match(subjectptr *C.char, length, flags int) (bool, error) {
 	rc := C.pcre_exec((*C.pcre)(unsafe.Pointer(&m.re.ptr[0])), nil,
 		subjectptr, C.int(length),
 		0, C.int(flags), &m.ovector[0], C.int(len(m.ovector)))
 	switch {
 	case rc >= 0:
 		m.matches = true
-		return true
+		return true, nil
 	case rc == C.PCRE_ERROR_NOMATCH:
 		m.matches = false
-		return false
+		return false, PCRE_ERROR_NOMATCH
 	case rc == C.PCRE_ERROR_MATCHLIMIT:
 		m.matches = false
-		return false
+		return false, PCRE_ERROR_MATCHLIMIT
 	case rc == C.PCRE_ERROR_BADOPTION:
 		panic("PCRE.Match: invalid option flag")
 	}
@@ -423,23 +429,33 @@ func (m *Matcher) NamedPresent(group string) bool {
 
 // Return the start and end of the first match, or nil if no match.
 // loc[0] is the start and loc[1] is the end.
-func (re *Regexp) FindIndex(bytes []byte, flags int) []int {
+func (re *Regexp) FindIndex(bytes []byte, flags int) ([]int, error) {
 	m := re.Matcher(bytes, flags)
-	if m.Match(bytes, flags) {
-		return []int{int(m.ovector[0]), int(m.ovector[1])}
+	matched, err := m.Match(bytes, flags)
+	if matched {
+		return []int{int(m.ovector[0]), int(m.ovector[1])}, err
 	}
-	return nil
+	return nil, err
 }
 
 // Return a copy of a byte slice with pattern matches replaced by repl.
-func (re Regexp) ReplaceAll(bytes, repl []byte, flags int) []byte {
+func (re Regexp) ReplaceAll(bytes, repl []byte, flags int) ([]byte, error) {
 	m := re.Matcher(bytes, 0)
 	r := []byte{}
-	for m.Match(bytes, flags) {
-		r = append(append(r, bytes[:m.ovector[0]]...), repl...)
-		bytes = bytes[m.ovector[1]:]
+	var (
+		matched bool = true
+		err     error
+	)
+	for matched {
+		if matched, err = m.Match(bytes, flags); matched {
+			r = append(append(r, bytes[:m.ovector[0]]...), repl...)
+			bytes = bytes[m.ovector[1]:]
+		}
 	}
-	return append(r, bytes...)
+	if err == PCRE_ERROR_NOMATCH { //err will be NOMATCH for all time.
+		err = nil
+	}
+	return append(r, bytes...), err
 }
 
 // A compilation error, as returned by the Compile function.  The

@@ -7,7 +7,7 @@ import (
 )
 
 func TestCompile(t *testing.T) {
-	var check = func (p string, groups int) {
+	var check = func(p string, groups int) {
 		re, err := Compile(p, 0)
 		if err != nil {
 			t.Error(p, err)
@@ -16,7 +16,7 @@ func TestCompile(t *testing.T) {
 			t.Error(p, g)
 		}
 	}
-	check("",0 )
+	check("", 0)
 	check("^", 0)
 	check("^$", 0)
 	check("()", 1)
@@ -25,7 +25,7 @@ func TestCompile(t *testing.T) {
 }
 
 func TestCompileFail(t *testing.T) {
-	var check = func (p, msg string, off int) {
+	var check = func(p, msg string, off int) {
 		_, err := Compile(p, 0)
 		switch {
 		case err == nil:
@@ -47,7 +47,7 @@ func strings(b [][]byte) (r []string) {
 	r = make([]string, len(b))
 	for i, v := range b {
 		r[i] = string(v)
-	} 
+	}
 	return
 }
 
@@ -91,7 +91,7 @@ func checkmatch1(t *testing.T, dostring bool, m *Matcher,
 			t.Error(prefix, pattern, subject, "Matches")
 			return
 		}
-		if m.Groups() != len(args) - 1 {
+		if m.Groups() != len(args)-1 {
 			t.Error(prefix, pattern, subject, "Groups", m.Groups())
 			return
 		}
@@ -166,7 +166,7 @@ func TestNamedGroup(t *testing.T) {
 	for k, i := range re.NamedGroups() {
 		switch k {
 		case "hostname":
-			checkIndex(t, k, i, 1) 
+			checkIndex(t, k, i, 1)
 		case "ip":
 			checkIndex(t, k, i, 2)
 		case "topic":
@@ -175,11 +175,11 @@ func TestNamedGroup(t *testing.T) {
 			checkIndex(t, k, i, 4)
 		}
 	}
-        m := re.MatcherString(`{@timestamp=2018-07-10T11:38:42.963+08:00, message={hostname: adca-mesos-32.vm.elenet.me, ip: 10.101.64.117, topic: arch.appos_agent} {"error":"request: Post http://127.0.0.1:1988/metrics?key=docker: net/http: request canceled (Client.Timeout exceeded while awaiting headers)","indice":"appos.agent","level":"error","log_source":"appos-agent","msg":"Send stats","time":"2018-06-18T03:15:41+08:00"}}`,0)
-        for k, v := range m.NamedStringMap() {
+	m := re.MatcherString(`{@timestamp=2018-07-10T11:38:42.963+08:00, message={hostname: adca-mesos-32.vm.elenet.me, ip: 10.101.64.117, topic: arch.appos_agent} {"error":"request: Post http://127.0.0.1:1988/metrics?key=docker: net/http: request canceled (Client.Timeout exceeded while awaiting headers)","indice":"appos.agent","level":"error","log_source":"appos-agent","msg":"Send stats","time":"2018-06-18T03:15:41+08:00"}}`, 0)
+	for k, v := range m.NamedStringMap() {
 		switch k {
 		case "hostname":
-			checkSubstring(t, k, v, "adca-mesos-32.vm.elenet.me") 
+			checkSubstring(t, k, v, "adca-mesos-32.vm.elenet.me")
 		case "ip":
 			checkSubstring(t, k, v, "10.101.64.117")
 		case "topic":
@@ -212,7 +212,10 @@ func TestNamed(t *testing.T) {
 
 func TestFindIndex(t *testing.T) {
 	re := MustCompile("bcd", 0)
-	i := re.FindIndex([]byte("abcdef"), 0)
+	i, err := re.FindIndex([]byte("abcdef"), 0)
+	if err != nil {
+		t.Error(err)
+	}
 	if i[0] != 1 {
 		t.Error("FindIndex start", i[0])
 	}
@@ -224,12 +227,18 @@ func TestFindIndex(t *testing.T) {
 func TestReplaceAll(t *testing.T) {
 	re := MustCompile("foo", 0)
 	// Don't change at ends.
-	result := re.ReplaceAll([]byte("I like foods."), []byte("car"), 0)
+	result, err := re.ReplaceAll([]byte("I like foods."), []byte("car"), 0)
+	if err != nil {
+		t.Error(err)
+	}
 	if string(result) != "I like cards." {
-		t.Error ("ReplaceAll", result)
+		t.Error("ReplaceAll", result)
 	}
 	// Change at ends.
-	result = re.ReplaceAll([]byte("food fight fools foo"), []byte("car"), 0)
+	result, err = re.ReplaceAll([]byte("food fight fools foo"), []byte("car"), 0)
+	if err != nil {
+		t.Error(err)
+	}
 	if string(result) != "card fight carls car" {
 		t.Error("ReplaceAll2", result)
 	}
