@@ -153,9 +153,6 @@ func TestCaseless(t *testing.T) {
 		t.Error("CASELESS")
 	}
 	m, err = MustCompile("abc", 0).MatcherString("Abc", 0)
-	if err == nil {
-		t.Error("!CASELESS")
-	}
 	if m.Matches() {
 		t.Error("!CASELESS")
 	}
@@ -258,6 +255,14 @@ func TestReplaceAll(t *testing.T) {
 		t.Error(err)
 	}
 	if string(result) != "card fight carls car" {
+		t.Error("ReplaceAll2", result)
+	}
+	// No changes.
+	result, err = re.ReplaceAll([]byte("test no changes"), []byte("car"), 0)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(result) != "test no changes" {
 		t.Error("ReplaceAll2", result)
 	}
 }

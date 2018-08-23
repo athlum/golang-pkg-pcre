@@ -103,6 +103,7 @@ const (
 var (
 	PCRE_ERROR_NOMATCH    = errors.New("PCRE_ERROR_NOMATCH")
 	PCRE_ERROR_MATCHLIMIT = errors.New("PCRE_ERROR_MATCHLIMIT")
+	PCRE_ERROR_BADOPTION  = errors.New("PCRE_ERROR_BADOPTION")
 )
 
 // A reference to a compiled regular expression.
@@ -323,12 +324,14 @@ func (m *Matcher) match(subjectptr *C.char, length, flags int) (bool, error) {
 		return true, nil
 	case rc == C.PCRE_ERROR_NOMATCH:
 		m.matches = false
-		return false, PCRE_ERROR_NOMATCH
+		return false, nil
 	case rc == C.PCRE_ERROR_MATCHLIMIT:
 		m.matches = false
 		return false, PCRE_ERROR_MATCHLIMIT
 	case rc == C.PCRE_ERROR_BADOPTION:
-		panic("PCRE.Match: invalid option flag")
+		// panic("PCRE.Match: invalid option flag")
+		m.matches = false
+		return false, PCRE_ERROR_BADOPTION
 	}
 	panic("unexepected return code from pcre_exec: " +
 		strconv.Itoa(int(rc)))
