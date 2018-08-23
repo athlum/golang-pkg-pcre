@@ -460,9 +460,6 @@ func (re Regexp) ReplaceAll(bytes, repl []byte, flags int) ([]byte, error) {
 			bytes = bytes[m.ovector[1]:]
 		}
 	}
-	if err == PCRE_ERROR_NOMATCH { //err will be NOMATCH for all time.
-		err = nil
-	}
 	return append(r, bytes...), err
 }
 
